@@ -1,0 +1,12 @@
+// src/components/StatusBar.tsx
+import React from 'react';
+
+interface StatusBarProps {
+  message: string;
+}
+
+const StatusBar: React.FC<StatusBarProps> = ({ message }) => {
+  return <div className="status">{message}</div>;
+};
+
+export default StatusBar;
