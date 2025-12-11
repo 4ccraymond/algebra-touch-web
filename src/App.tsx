@@ -3,18 +3,24 @@ import React, { useState } from 'react';
 import './styles/App.css';
 import EquationView from './components/EquationView';
 import StatusBar from './components/StatusBar';
-import type { Equation } from './math/types';
+import type { Equation, Term } from './math/types';
 import { moveTerm, combineAdjacentNumbers } from './math/rules';
 import { levels } from './game/levels';
 import { checkGoalReached } from './game/logic';
 
+const cloneEquation = (eq: Equation): Equation => ({
+  left: { terms: eq.left.terms.map((t) => ({ ...t })) },
+  right: { terms: eq.right.terms.map((t) => ({ ...t })) },
+});
+
 const App: React.FC = () => {
   const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
   const [equation, setEquation] = useState<Equation>(
-    levels[0].initialEquation
+    cloneEquation(levels[0].initialEquation)
   );
   const [isComplete, setIsComplete] = useState(false);
   const [status, setStatus] = useState(levels[0].description);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const currentLevel = levels[currentLevelIndex];
 
@@ -26,6 +32,10 @@ const App: React.FC = () => {
     const payload = JSON.stringify({ side, index });
     e.dataTransfer.setData('application/json', payload);
     e.dataTransfer.setData('text/plain', payload); // fallback
+
+    const term: Term =
+      side === 'left' ? equation.left.terms[index] : equation.right.terms[index];
+    setDraggingId(term.id ?? null);
   };
 
   const applyDropMove = (
@@ -38,16 +48,27 @@ const App: React.FC = () => {
     const raw =
       e.dataTransfer.getData('application/json') ||
       e.dataTransfer.getData('text/plain');
-    if (!raw) return;
+    if (!raw) {
+      setDraggingId(null);
+      return;
+    }
 
     let parsed: { side: 'left' | 'right'; index: number };
     try {
       parsed = JSON.parse(raw);
     } catch {
+      setDraggingId(null);
       return;
     }
 
     const { side: fromSide, index: fromIndex } = parsed;
+
+    // For “one-side only” levels, don’t allow crossing the equals sign
+    if (currentLevel.hideRightSide && fromSide !== targetSide) {
+      setStatus('This level only uses one side; you cannot move terms across =.');
+      setDraggingId(null);
+      return;
+    }
 
     const updated = moveTerm(
       equation,
@@ -59,10 +80,12 @@ const App: React.FC = () => {
 
     if (updated === equation) {
       setStatus('Could not move that term.');
+      setDraggingId(null);
       return;
     }
 
     setEquation(updated);
+    setDraggingId(null);
 
     const done = checkGoalReached(currentLevel, updated);
     if (done) {
@@ -87,7 +110,7 @@ const App: React.FC = () => {
   const handleDropOnTerm = (
     targetSide: 'left' | 'right',
     targetIndex: number,
-    e: React.DragEvent<HTMLElement>
+    e: React.DragEvent<HTMLDivElement>
   ) => {
     applyDropMove(targetSide, targetIndex, e);
   };
@@ -114,9 +137,10 @@ const App: React.FC = () => {
   };
 
   const reset = () => {
-    setEquation(currentLevel.initialEquation);
+    setEquation(cloneEquation(currentLevel.initialEquation));
     setIsComplete(false);
     setStatus(currentLevel.description);
+    setDraggingId(null);
   };
 
   const goToNextLevel = () => {
@@ -124,9 +148,10 @@ const App: React.FC = () => {
     const nextLevel = levels[nextIndex];
 
     setCurrentLevelIndex(nextIndex);
-    setEquation(nextLevel.initialEquation);
+    setEquation(cloneEquation(nextLevel.initialEquation));
     setIsComplete(false);
     setStatus(nextLevel.description);
+    setDraggingId(null);
   };
 
   return (
@@ -138,6 +163,8 @@ const App: React.FC = () => {
 
       <EquationView
         equation={equation}
+        draggingId={draggingId}
+        hideRightSide={!!currentLevel.hideRightSide}
         onDragTermStart={handleDragTermStart}
         onDropOnSide={handleDropOnSide}
         onDropOnTerm={handleDropOnTerm}

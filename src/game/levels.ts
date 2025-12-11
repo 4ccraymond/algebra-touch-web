@@ -15,22 +15,6 @@ function numberTermFromInt(n: number, family = 'num'): Term {
   return { id: nextTermId(), kind: 'number', value, sign, family };
 }
 
-function variableTerm(
-  name: string,
-  coefficient: number,
-  sign: Sign,
-  family?: string
-): Term {
-  return {
-    id: nextTermId(),
-    kind: 'variable',
-    name,
-    coefficient,
-    sign,
-    family: family ?? name,
-  };
-}
-
 export const levels: LevelDefinition[] = [
   {
     id: 'combine-1',
@@ -46,36 +30,14 @@ export const levels: LevelDefinition[] = [
           numberTermFromInt(randInt(-9, 9)),
         ],
       },
-      right: { terms: [] },
+      right: { terms: [] }, // still exists, just hidden/unused in UI
     },
     goal: {
       type: 'simplify-side',
       targetSide: 'left',
     },
+    hideRightSide: true, // 🔹 no "=" or right side in UI; no cross-side moves
   },
 
-  {
-    id: 'one-step-1',
-    topic: 'one-step-equations',
-    difficulty: 1,
-    title: 'Random One-Step',
-    description: 'Get x alone with a single number on the other side.',
-    initialEquation: {
-      left: {
-        terms: [
-          {
-            ...variableTerm('x', 1, 1, 'x'),
-          },
-          numberTermFromInt(randInt(-9, 9)),
-        ],
-      },
-      right: {
-        terms: [numberTermFromInt(randInt(-9, 9))],
-      },
-    },
-    goal: {
-      type: 'isolate-variable',
-      targetVariable: 'x',
-    },
-  },
+  // ... other levels ...
 ];

@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 
 interface EquationViewProps {
   equation: Equation;
+  draggingId: string | null;
+  hideRightSide: boolean;
   onDragTermStart: (
     side: 'left' | 'right',
     index: number,
@@ -17,13 +19,15 @@ interface EquationViewProps {
   onDropOnTerm: (
     side: 'left' | 'right',
     targetIndex: number,
-    e: React.DragEvent<HTMLElement>
+    e: React.DragEvent<HTMLDivElement>
   ) => void;
   onOperatorClick: (side: 'left' | 'right', rightIndex: number) => void;
 }
 
 const EquationView: React.FC<EquationViewProps> = ({
   equation,
+  draggingId,
+  hideRightSide,
   onDragTermStart,
   onDropOnSide,
   onDropOnTerm,
@@ -33,7 +37,6 @@ const EquationView: React.FC<EquationViewProps> = ({
     if (term.kind === 'number') {
       return term.value.toString();
     }
-    // variable: show 3x, x, 2y, etc.
     if (term.coefficient === 1) {
       return term.name;
     }
@@ -50,20 +53,17 @@ const EquationView: React.FC<EquationViewProps> = ({
       const signForFirst = isNegative ? '-' : '';
       const operatorText = isNegative ? '-' : '+';
       const bodyText = renderTermBody(term);
-
-      const key =
-        term.id ??
-        `${side}-${index}-${term.kind}-${term.family}-${bodyText}-${term.sign}`;
+      const isDragging = draggingId === term.id;
 
       return (
         <motion.div
-          key={key}                    // 🔑 stable key (id when present)
-          layout                       // let Framer Motion animate position changes
+          key={term.id}
           className="term-slot"
+          layout={!isDragging} // don't animate the dragged term itself
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
           onDrop={(e) => {
             e.preventDefault();
-            e.stopPropagation();       // avoid bubbling to side
+            e.stopPropagation();
             onDropOnTerm(side, index, e);
           }}
           onDragOver={(e) => e.preventDefault()}
@@ -103,18 +103,22 @@ const EquationView: React.FC<EquationViewProps> = ({
         {renderSide('left', equation.left.terms)}
       </div>
 
-      <span className="token equals">=</span>
+      {!hideRightSide && (
+        <>
+          <span className="token equals">=</span>
 
-      <div
-        className="side right-side drop-target"
-        onDrop={(e) => {
-          e.preventDefault();
-          onDropOnSide('right', e); // drop at end of right side
-        }}
-        onDragOver={(e) => e.preventDefault()}
-      >
-        {renderSide('right', equation.right.terms)}
-      </div>
+          <div
+            className="side right-side drop-target"
+            onDrop={(e) => {
+              e.preventDefault();
+              onDropOnSide('right', e); // drop at end of right side
+            }}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            {renderSide('right', equation.right.terms)}
+          </div>
+        </>
+      )}
     </div>
   );
 };
