@@ -59,6 +59,19 @@
   min-height: 1.5rem;
 }
 
+.term-slot {
+  display: inline-flex;
+  align-items: center;
+}
+
+.drop-gap {
+  display: inline-block;
+  width: 12px;           /* horizontal "hit box" */
+  height: 32px;          /* vertical "hit box" */
+  margin: 0 2px;
+}
+
+
 button {
   margin-top: 0.5rem;
   padding: 0.4rem 0.8rem;

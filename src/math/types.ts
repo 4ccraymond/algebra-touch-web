@@ -7,6 +7,10 @@ export interface TermBase {
   kind: TermKind;
   sign: Sign;
   /**
+   * Optional stable id so UI keys don't shuffle on reorder.
+   */
+  id?: string;
+  /**
    * "Family" identifies like terms.
    * Examples:
    *  - "num" for plain numbers
@@ -25,6 +29,10 @@ export interface NumberTerm extends TermBase {
 export interface VariableTerm extends TermBase {
   kind: 'variable';
   name: string;
+  /**
+   * Coefficient is always non-negative; sign is stored separately.
+   */
+  coefficient: number;
 }
 
 export type Term = NumberTerm | VariableTerm;

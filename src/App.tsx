@@ -28,9 +28,10 @@ const App: React.FC = () => {
     e.dataTransfer.setData('text/plain', payload); // fallback
   };
 
-  const handleDropSide = (
+  const applyDropMove = (
     targetSide: 'left' | 'right',
-    e: React.DragEvent<HTMLDivElement>
+    targetIndex: number | null,
+    e: React.DragEvent
   ) => {
     e.preventDefault();
 
@@ -46,9 +47,16 @@ const App: React.FC = () => {
       return;
     }
 
-    const { side: fromSide, index } = parsed;
+    const { side: fromSide, index: fromIndex } = parsed;
 
-    const updated = moveTerm(equation, fromSide, index, targetSide);
+    const updated = moveTerm(
+      equation,
+      fromSide,
+      fromIndex,
+      targetSide,
+      targetIndex
+    );
+
     if (updated === equation) {
       setStatus('Could not move that term.');
       return;
@@ -59,16 +67,29 @@ const App: React.FC = () => {
     const done = checkGoalReached(currentLevel, updated);
     if (done) {
       setIsComplete(true);
-      setStatus('Level complete! You isolated x.');
+      setStatus('Level complete!');
     } else if (fromSide === targetSide) {
-      setStatus(
-        'Reordered: dropping on the same side moves the term to the front.'
-      );
+      setStatus('Reordered the terms on this side.');
     } else {
       setStatus(
-        'Nice! Moving a term across "=" adds its opposite to the other side.'
+        'Moved a term across "=", adding its opposite to the other side.'
       );
     }
+  };
+
+  const handleDropOnSide = (
+    targetSide: 'left' | 'right',
+    e: React.DragEvent<HTMLDivElement>
+  ) => {
+    applyDropMove(targetSide, null, e);
+  };
+
+  const handleDropOnTerm = (
+    targetSide: 'left' | 'right',
+    targetIndex: number,
+    e: React.DragEvent<HTMLElement>
+  ) => {
+    applyDropMove(targetSide, targetIndex, e);
   };
 
   const handleOperatorClick = (side: 'left' | 'right', rightIndex: number) => {
@@ -76,7 +97,7 @@ const App: React.FC = () => {
 
     if (updated === equation) {
       setStatus(
-        'Those terms cannot be combined. You can only combine two adjacent integers from the same family.'
+        'Those terms cannot be combined. You can only combine two adjacent integers for now.'
       );
       return;
     }
@@ -86,7 +107,7 @@ const App: React.FC = () => {
     const done = checkGoalReached(currentLevel, updated);
     if (done) {
       setIsComplete(true);
-      setStatus('Level complete! You isolated x.');
+      setStatus('Level complete!');
     } else {
       setStatus('Combined those integers into a single number.');
     }
@@ -118,13 +139,21 @@ const App: React.FC = () => {
       <EquationView
         equation={equation}
         onDragTermStart={handleDragTermStart}
-        onDropSide={handleDropSide}
+        onDropOnSide={handleDropOnSide}
+        onDropOnTerm={handleDropOnTerm}
         onOperatorClick={handleOperatorClick}
       />
 
       <StatusBar message={status} />
 
-      <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+      <div
+        style={{
+          marginTop: '0.75rem',
+          display: 'flex',
+          gap: '0.5rem',
+          justifyContent: 'center',
+        }}
+      >
         <button onClick={reset}>Reset Level</button>
         <button onClick={goToNextLevel} disabled={!isComplete}>
           Next Level
@@ -132,15 +161,13 @@ const App: React.FC = () => {
       </div>
 
       <p className="hint">
-        • Drag a term onto the same side to move it to the front.
+        • Drag a term onto another term to insert it before that term.
         <br />
-        • Drag a term across the equals sign to add its opposite to the other
-        side.
+        • Drag a term onto the background of a side to drop it at the end.
         <br />
-        • Click the + or - between two integers of the same family to combine
-        them.
+        • Drag across the equals sign to add the opposite to the other side.
         <br />
-        • Goal for this level: isolate x with a single number on the other side.
+        • Click the + or - between two integers to combine them.
       </p>
     </div>
   );

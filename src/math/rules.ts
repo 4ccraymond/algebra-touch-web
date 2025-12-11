@@ -1,20 +1,22 @@
 // src/math/rules.ts
 import type { Equation, Term } from './types';
+import { nextTermId } from './id';
 
 /**
- * Move a term either:
- * - across the equals sign (flipping its sign), or
- * - within the same side (reordering, keeping its sign).
+ * Move a term from one side (and index) to another side and index.
  *
- * If you drop on the same side, we move the term to the **front** of that side.
+ * - Within the same side, sign stays the same.
+ * - Across "=", sign flips.
+ * - toIndex === null → append at end of target side.
+ * - toIndex is a number → insert before that index.
  */
 export function moveTerm(
   equation: Equation,
   fromSide: 'left' | 'right',
   fromIndex: number,
-  toSide: 'left' | 'right'
+  toSide: 'left' | 'right',
+  toIndex: number | null
 ): Equation {
-  // Copy term arrays so we don't mutate state directly
   const leftTerms = [...equation.left.terms];
   const rightTerms = [...equation.right.terms];
 
@@ -27,19 +29,29 @@ export function moveTerm(
 
   const [term] = sourceTerms.splice(fromIndex, 1);
 
-  let moved: Term;
-  if (fromSide === toSide) {
-    // Reorder within the same side (keep sign, move to front)
-    moved = term;
-    targetTerms.unshift(moved);
+  // Flip sign only when crossing the equals sign
+  const moved: Term =
+    fromSide === toSide ? term : { ...term, sign: term.sign === 1 ? -1 : 1 };
+
+  let insertIndex: number;
+  if (toIndex == null) {
+    // Drop at end of that side
+    insertIndex = targetTerms.length;
   } else {
-    // Crossing the equals sign: add the opposite term to the other side
-    moved = {
-      ...term,
-      sign: term.sign === 1 ? -1 : 1,
-    };
-    targetTerms.push(moved);
+    let idx = toIndex;
+
+    // If moving within the same side and we removed an earlier element,
+    // the target index shifts left by one.
+    if (fromSide === toSide && fromIndex < toIndex) {
+      idx -= 1;
+    }
+
+    if (idx < 0) idx = 0;
+    if (idx > targetTerms.length) idx = targetTerms.length;
+    insertIndex = idx;
   }
+
+  targetTerms.splice(insertIndex, 0, moved);
 
   return {
     left: { terms: leftTerms },
@@ -48,11 +60,8 @@ export function moveTerm(
 }
 
 /**
- * Combine two adjacent numeric terms on the same side.
- * `rightIndex` is the index of the term *after* the operator you clicked.
- *
- * Example: for "5 - 3", terms = [ +5, -3 ]
- * The operator before index 1 is "-", so `rightIndex = 1`.
+ * Combine two adjacent integer terms on the same side.
+ * rightIndex is the index of the right-hand term of the pair.
  */
 export function combineAdjacentNumbers(
   equation: Equation,
@@ -62,7 +71,6 @@ export function combineAdjacentNumbers(
   const sideTerms =
     side === 'left' ? equation.left.terms : equation.right.terms;
 
-  // Need a term to the left and one at rightIndex
   if (rightIndex <= 0 || rightIndex >= sideTerms.length) {
     return equation;
   }
@@ -70,12 +78,8 @@ export function combineAdjacentNumbers(
   const prevTerm = sideTerms[rightIndex - 1];
   const nextTerm = sideTerms[rightIndex];
 
-  if (
-    prevTerm.kind !== 'number' ||
-    nextTerm.kind !== 'number' ||
-    prevTerm.family !== nextTerm.family
-  ) {
-    // Only combine pure numbers from the same family (true like terms)
+  if (prevTerm.kind !== 'number' || nextTerm.kind !== 'number') {
+    // Only combine pure numbers for now
     return equation;
   }
 
@@ -83,7 +87,6 @@ export function combineAdjacentNumbers(
   const rightValue = nextTerm.sign * nextTerm.value;
   const sum = leftValue + rightValue;
 
-  // Clone arrays for immutability
   const leftTerms = [...equation.left.terms];
   const rightTerms = [...equation.right.terms];
   const targetTerms = side === 'left' ? leftTerms : rightTerms;
@@ -93,15 +96,14 @@ export function combineAdjacentNumbers(
 
   if (sum !== 0) {
     const newTerm: Term = {
+      id: nextTermId(),
       kind: 'number',
       value: Math.abs(sum),
       sign: sum >= 0 ? 1 : -1,
       family: prevTerm.family,
     };
-    // Insert the combined term where the first one used to be
     targetTerms.splice(rightIndex - 1, 0, newTerm);
   }
-  // If sum === 0, we insert nothing; if side becomes empty, UI shows 0
 
   return {
     left: { terms: leftTerms },
